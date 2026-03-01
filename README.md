@@ -1,4 +1,4 @@
-# Minecraft Backup Manager
+# Minecraft Java Backup wolds
 
 Small Python tool made to create safe backups of Minecraft Java Edition worlds.
 
@@ -22,6 +22,11 @@ The goal is to ensure backups are easy, fast, and reliable.
 - Windows
 - Minecraft Java Edition
 
+## How to use
+1. Run python file
+2. Select the folder where the backups will be saver (first time only)
+3. Chose wold
+4. Done
 ---
 
 Made with love for MC community <3
