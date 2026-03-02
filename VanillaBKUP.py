@@ -1,11 +1,11 @@
 import os
 import shutil
+import json
 from datetime import datetime
 import tkinter as tk
 from tkinter import messagebox, filedialog
 
-minecraft_path = os.path.expanduser("~\\AppData\\Roaming\\.minecraft\\saves")
-config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.txt")
+config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
 BG = "#1e1e1e"
 ACCENT = "#cd173f"
@@ -13,30 +13,56 @@ FG = "#ffffff"
 BTN_HOVER = "#a01030"
 
 # --- Config ---
-def load_backup_folder():
+def load_config():
     if not os.path.exists(config_file):
-        return ask_and_save_folder(first_time=True)
+        return ask_and_save_config(first_time=True)
     with open(config_file, "r") as f:
-        path = f.read().strip()
-    if not path or not os.path.exists(path):
-        messagebox.showwarning("Aviso", "La ruta guardada no existe, selecciona una nueva.")
-        return ask_and_save_folder()
-    return path
+        data = json.load(f)
+    minecraft = data.get("minecraft_path", "")
+    backup = data.get("backup_folder", "")
+    if not minecraft or not backup:
+        messagebox.showwarning("Aviso", "Configuración incompleta, configura de nuevo.")
+        return ask_and_save_config()
+    if not os.path.exists(minecraft):
+        messagebox.showwarning("Aviso", "La carpeta de mundos no existe, selecciona una nueva.")
+        minecraft = ask_minecraft_folder()
+        save_config(minecraft, backup)
+    if not os.path.exists(backup):
+        messagebox.showwarning("Aviso", "La carpeta de backups no existe, selecciona una nueva.")
+        backup = ask_backup_folder()
+        save_config(minecraft, backup)
+    return minecraft, backup
 
-def ask_and_save_folder(first_time=False):
+def ask_and_save_config(first_time=False):
     if first_time:
-        messagebox.showinfo("Bienvenido", "Primera vez que abres el programa.\nSelecciona la carpeta donde se guardarán los backups.")
+        messagebox.showinfo("Bienvenido", "Primera vez que abres el programa.\nVamos a configurar las carpetas necesarias.")
+    minecraft = ask_minecraft_folder()
+    backup = ask_backup_folder()
+    save_config(minecraft, backup)
+    return minecraft, backup
+
+def ask_minecraft_folder():
+    messagebox.showinfo("Carpeta de mundos", "Selecciona la carpeta 'saves' de Minecraft.")
+    folder = filedialog.askdirectory(title="Selecciona carpeta saves de Minecraft")
+    if not folder:
+        exit()
+    return folder
+
+def ask_backup_folder():
+    messagebox.showinfo("Carpeta de backups", "Selecciona la carpeta donde se guardarán los backups.")
     folder = filedialog.askdirectory(title="Selecciona carpeta de backups")
     if not folder:
         exit()
-    with open(config_file, "w") as f:
-        f.write(folder)
     return folder
+
+def save_config(minecraft, backup):
+    with open(config_file, "w") as f:
+        json.dump({"minecraft_path": minecraft, "backup_folder": backup}, f, indent=4)
 
 def update_folder():
     global backup_folder
-    new_folder = ask_and_save_folder()
-    backup_folder = new_folder
+    backup_folder = ask_backup_folder()
+    save_config(minecraft_path, backup_folder)
     folder_label.config(text=f"Ruta de la carpeta del Backup:\n{backup_folder}")
 
 def get_size(path):
@@ -45,9 +71,14 @@ def get_size(path):
         for f in filenames:
             fp = os.path.join(dirpath, f)
             total += os.path.getsize(fp)
-    return round(total / (1024*1024), 2)
+    return round(total / (1024 * 1024), 2)
 
-# --- Validaciones ---
+# --- Cargar config antes de la ventana ---
+tmp_root = tk.Tk()
+tmp_root.withdraw()
+minecraft_path, backup_folder = load_config()
+tmp_root.destroy()
+
 if not os.path.exists(minecraft_path):
     messagebox.showerror("Error", "No se encontró la carpeta de mundos.")
     exit()
@@ -71,13 +102,11 @@ def on_leave(e): e.widget.config(bg=ACCENT)
 def on_mousewheel(e):
     canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
 
-# --- Ventana ---
+# --- Ventana principal ---
 root = tk.Tk()
 root.title("Minecraft Backup")
 root.resizable(False, False)
 root.configure(bg=BG)
-
-backup_folder = load_backup_folder()
 
 # --- Ruta actual + botón actualizar ---
 footer_frame = tk.Frame(root, bg=BG, relief="sunken", border=1)
@@ -87,7 +116,7 @@ folder_label = tk.Label(
     footer_frame,
     text=f"Ruta de la carpeta del Backup:\n{backup_folder}",
     font=("Arial", 8),
-    bg=BG, fg="#aaaaaa",
+    bg=BG, fg=FG,
     anchor="w",
     wraplength=340
 )
@@ -109,16 +138,16 @@ btn_update.pack(side="right", padx=(8, 0), ipady=2)
 tk.Label(
     root,
     text="Selecciona un mundo para hacer backup",
-    font=("nsolas", 15, "bold"),
-    bg=BG, fg=ACCENT,
-    pady=14
+    font=("Consolas", 12, "bold"),
+    bg=BG, fg=FG,
+    pady=10
 ).pack()
 
 # --- Contenedor con scroll ---
 container = tk.Frame(root, bg=BG)
 container.pack(pady=(0, 5))
 
-canvas = tk.Canvas(container, bg=BG, highlightthickness=0, width=370, height=300)
+canvas = tk.Canvas(container, bg=BG, highlightthickness=0, width=370, height=350)
 scrollbar = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
 canvas.configure(yscrollcommand=scrollbar.set)
 
